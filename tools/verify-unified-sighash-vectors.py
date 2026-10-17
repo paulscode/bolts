@@ -222,6 +222,9 @@ def check_input(tx, idx, spent, counts, label, tag):
     witness = tx['ins'][idx]['witness']
     script = witness[-1]
     keys = script_pubkeys(script)
+    # Each signature must be from a different key: a witness carrying one
+    # signature twice signs for one key, however many slots it fills.
+    used = set()
     for item in witness[:-1]:
         # Signatures: DER followed by the hash type byte. Other items (the
         # empty CHECKMULTISIG dummy, preimages) are skipped.
@@ -230,10 +233,15 @@ def check_input(tx, idx, spent, counts, label, tag):
         hash_type, sig = item[-1], item[:-1]
         digest = unified_digest(tx, idx, spent, script, hash_type, tag)
         counts[hash_type] = counts.get(hash_type, 0) + 1
-        if not any(ecdsa_verify(k, digest, sig) for k in keys):
+        signer = next((k for k in keys
+                       if k not in used and ecdsa_verify(k, digest, sig)),
+                      None)
+        if signer is None:
             counts['fail'] = counts.get('fail', 0) + 1
             print("FAIL {}: hash type {:#04x}, digest {}".format(
                 label, hash_type, digest.hex()))
+        else:
+            used.add(signer)
 
 
 # BOLT 3 Appendix C: the funding output every test vector spends.
