@@ -2181,9 +2181,9 @@ Once a node has sent and received `splice_locked`:
         this splice transaction.
     - MUST use as each side's channel reserve 1% of the new channel
       capacity, rounded down, or the channel opener's `dust_limit_satoshis`
-      if greater, from the first `channel_reestablish` sent after both
-      nodes have sent and received `splice_locked` (or the
-      `my_current_funding_locked` that stands for it).
+      if greater, from the first `channel_reestablish` exchange in which
+      both nodes' `my_current_funding_locked` name this splice transaction,
+      once it has received its peer's `channel_reestablish`.
     - Until then, MUST keep the channel reserves it used before the splice.
   - If the `splice_txid`s are for different RBF candidates:
     - SHOULD ignore the message.
@@ -2203,7 +2203,13 @@ one side changes the other's balance as well, since the channel opener pays
 the commitment fee. The reserves must therefore change for both nodes at the
 same point in the message flow. Changing them as `splice_locked` is
 exchanged leaves a race, since updates may already be in flight;
-`channel_reestablish` is a point both nodes pass together. A splice ends the
+`channel_reestablish` is a point both nodes pass together. "After both nodes
+have sent and received `splice_locked`" is not enough to pick it: a node
+can't tell whether its `splice_locked` reached its peer before a
+disconnection, so that condition can come true for the two nodes one
+reconnection apart. Each `channel_reestablish` exchange shows both nodes both
+`my_current_funding_locked`, so they agree on the one where both name the
+splice, and switch before any update on that connection. A splice ends the
 reserves negotiated in `open_channel` too: like a channel opened with
 `open_channel2`, a spliced channel is funded by both sides.
 
